@@ -34,7 +34,7 @@ class Action(Move):
         self.counter_characters = counter_characters
         super().__init__(player, character)
 
-    def incur_costs():
+    def incur_costs(self):
         '''
         Player incurs cost for playing action (i.e. losing coins). 
         This is left intentionall blank.

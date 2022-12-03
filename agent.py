@@ -9,7 +9,7 @@ exchange_mask = th.zeros(31)
 exchange_mask[21:] = 1
 
 
-class GEGelU(nn.module):
+class GEGelU(nn.Module):
     def __init__(self,dim):
         super(GEGelU, self).__init__()
         self.dim = dim
@@ -18,9 +18,9 @@ class GEGelU(nn.module):
         return input[:self.dim]*self.activation(input[self.dim:])
 
 
-class agent(nn.Module):
+class Agent(nn.Module):
     def __init__(self):
-        super(agent, self).__init__()
+        super(Agent, self).__init__()
         self.model = nn.Sequential()
         self.model.add_module('layer_1 transformer', nn.TransformerEncoderLayer(68,8))
         self.model.add_module('layer_2 transformer', nn.TransformerEncoderLayer(68,2))
@@ -51,9 +51,9 @@ class agent(nn.Module):
 
         return actions, targets, cards_to_keep, exchange_dist
 
-class random_agent(nn.Module):
+class RandomAgent(nn.Module):
     def __init__(self):
-        super(agent,self).__init__()
+        super(RandomAgent,self).__init__()
 
 
     def forward(self, game_state : th.Tensor, action_mask: th.Tensor, target_mask=th.zeros(30)):
@@ -61,6 +61,6 @@ class random_agent(nn.Module):
         actions = th.softmax(action_state * action_mask,1)
         cards_to_keep = th.softmax(action_state*card_to_keep_mask,1)
         exchange_dist = th.softmax(action_state*exchange_mask,1)
-        
+        targets = th.softmax(action_state*target_mask,1)
         return actions,cards_to_keep,targets,exchange_dist  
 

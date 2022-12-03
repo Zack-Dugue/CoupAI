@@ -114,6 +114,6 @@ OMEGA_1 = 2
 OMEGA_2 = 4
 OMEGA_3 = 16
 
-
+DECK = ['Duke', 'Duke', 'Duke', 'Assassin' , 'Assassin' , 'Assassin',  'Ambassador','Ambassador','Ambassador', 'Captain', 'Captain', 'Captain', 'Contessa' , 'Contessa', 'Contessa']
 
 # Start writing code here...

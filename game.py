@@ -10,10 +10,10 @@ from move import *
 class Game:
     '''This is the interface between all the players.'''
 
-    def __init__(self):
+    def __init__(self,players,deck):
         
-        self.deck = []
-        self.players = []
+        self.deck = deck
+        self.players = players
         self.game_state = None # TODO
         self.num_alive = len(self.players) # TODO
 
@@ -50,11 +50,11 @@ class Game:
                 block = player.declare_block(action, self.game_state)
                 if block is not None: 
                     if block.card == "Duke":
-                        game_state[-1][GSV_BLOCK_FOREIGN_AID] = 1
-                        game_state[-1][GSV_TARGET_PLAYER_0 + player.player_id]
-                    elif block.card == "Captain": game_state[-1][GSV_BLOCK_STEALING_CAPTAIN] = 1
-                    elif block.card == "Ambassador": game_state[-1][GSV_BLOCK_STEALING_AMBASSADOR] =1 
-                    elif block.card == "Contessa": game_state[-1][GSV_BLOCK_ASSASSINATION] = 1
+                        self.game_state[-1][GSV_BLOCK_FOREIGN_AID] = 1
+                        self.game_state[-1][GSV_TARGET_PLAYER_0 + player.player_id]
+                    elif block.card == "Captain": self.game_state[-1][GSV_BLOCK_STEALING_CAPTAIN] = 1
+                    elif block.card == "Ambassador": self.game_state[-1][GSV_BLOCK_STEALING_AMBASSADOR] =1
+                    elif block.card == "Contessa": self.game_state[-1][GSV_BLOCK_ASSASSINATION] = 1
 
                     return block
         return None
@@ -66,8 +66,8 @@ class Game:
         block_players = self.players[block_idx+1:] + self.players[:block_idx]
 
         for player in block_players:
-            if player.declare_challenge_to_block(block, game_state):
-                game_state[-1][GSV_CHALLENGE_BLOCK_BY_PLAYER_0 + player.player_id] = 1
+            if player.declare_challenge_to_block(block, self.game_state):
+                self.game_state[-1][GSV_CHALLENGE_BLOCK_BY_PLAYER_0 + player.player_id] = 1
                 return player
         return None
     
@@ -119,7 +119,7 @@ class Game:
         for player in self.players:
             num_alive += player.alive
         if num_alive > 1: return False
-        if num_alive == 0: raise Error('All players are dead') # TODO: make error specific
+        if num_alive == 0: raise ValueError('All players are dead') # TODO: make error specific
         return True
 
 

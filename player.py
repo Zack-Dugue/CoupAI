@@ -1,13 +1,14 @@
 import torch as th
 import random
 from utils import *
+import torch.nn as nn
 from move import *
 
 
 class Player:
     '''This is the interface between the agent and the game.'''
 
-    def __init__(self, influences: list, ID: int):#, game):
+    def __init__(self, influences: tuple, ID: int, agent : type[nn.Module]):#, game):
 
         self.coins = 2
         self.influence = influences
@@ -20,7 +21,7 @@ class Player:
 #         self.game = game
         # add self.influence_to_keep
         self.influence_to_keep = 0
-
+        self.agent = agent
 
 
     def lose_coins(self, requested_coins):
@@ -107,7 +108,7 @@ class Player:
         
         # Make target mask
         target_mask = th.zeros(ACTION_VEC_LEN)
-        player_list.remove(player.id)
+        player_list.remove(self.player_id)
         for k,player in enumerate(player_list):
             if player.alive:
                 target_mask[AV_TARGET_PLAYER_1+k] = 1
@@ -147,10 +148,10 @@ class Player:
         block_mask = th.zeros(ACTION_VEC_LEN)
         block_mask[0] = 1
         action_type = type(action)
-        if action_type == ForeignAid:
+        if action_type ==  Foreign_Aid:
             block_mask[AV_BLOCK_FOREIGN_AID] = 1
         elif action.target == self:
-            if action_type == Assasinate:
+            if action_type == Assassinate:
                 block_mask[AV_BLOCK_ASSASSINATION] = 1
             elif action_type == Steal:
                 block_mask[AV_BLOCK_STEALING_AMBS] = 1
