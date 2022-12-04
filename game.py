@@ -164,15 +164,24 @@ class Game:
             player = self.players[0]
             self.players = self.players[1:] + [player]
             if not player.alive:
+                print(f"\t player {player.player_id}is dead")
                 continue
             action = player.declare_action(self.players, self.game_state)
-            
+            print(f"\t player {player.player_id} is doing action {action}")
+
             # challenge
             challenger = self.get_challenger(action)
+            if challenger is not None:
+                print(f"\tChallenger {challenger.player_id} is doing challenge")
+            else:
+                print(f"\tno challenge")
+
             if (challenger is not None) and self.do_challenge(challenger, action):
                 self.game_state[-1][GSV_CHALLENGE_SUCCESS] = 1
+                print(f"\tChallenge was a success!")
                 continue
-                    
+
+
             action.incur_costs()
             
             # block

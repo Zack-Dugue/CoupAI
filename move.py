@@ -1,7 +1,7 @@
 from utils import *
 import torch as th
 import torch.nn as nn 
-import torch.functional as F
+import torch.nn.functional as F
 import random
 
 ## ALL refrences to player were removed
@@ -132,7 +132,7 @@ class Exchange(Action):
             self.influence_dist[AV_EXCHNG_CARD_0_CAPTAIN] *= (draw_0 == 'Captain' or draw_1 == 'Captain' or self.player.influence[0] == 'Captain')
             self.influence_dist[AV_EXCHNG_CARD_0_CONTESSA] *= (draw_0 == 'Contessa' or draw_1 == 'Contessa' or self.player.influence[0] == 'Contessa')
 
-            self.influence_dist[AV_EXCHNG_CARD_0_DUKE:AV_EXCHNG_CARD_0_CONTESSA+1] = th.softmax(self.influence_dist[AV_EXCHNG_CARD_0_DUKE:AV_EXCHNG_CARD_1_DUKE])
+            self.influence_dist[AV_EXCHNG_CARD_0_DUKE:AV_EXCHNG_CARD_0_CONTESSA+1] = F.softmax(self.influence_dist[AV_EXCHNG_CARD_0_DUKE:AV_EXCHNG_CARD_1_DUKE],0)
             new_card = th.multinomial(self.influence_dist[AV_EXCHNG_CARD_0_DUKE:AV_EXCHNG_CARD_0_CONTESSA+1],1)
             self.player.influence[0] = num_to_influnece(new_card)
             if new_card == draw_0: draw_0 = None
@@ -141,11 +141,11 @@ class Exchange(Action):
         if(self.player.influence_alive[1]):
             self.influence_dist[AV_EXCHNG_CARD_1_DUKE] *= (draw_0 == 'Duke' or draw_1 == 'Duke' or self.player.influence[1] == 'Duke')
             self.influence_dist[AV_EXCHNG_CARD_1_ASSASSIN] *= (draw_0 == 'Assassin' or draw_1 == 'Assassin' or self.player.influence[1] == 'Assassin')
-            self.influence_dist[AV_EXCHNG_CARD_1_AMBASSADOR] *= (draw_0 == 'Ambassador' or draw_1 == 'Ambassador' or self.player.player.influence[1] == 'Ambassador')
+            self.influence_dist[AV_EXCHNG_CARD_1_AMBASSADOR] *= (draw_0 == 'Ambassador' or draw_1 == 'Ambassador' or self.player.influence[1] == 'Ambassador')
             self.influence_dist[AV_EXCHNG_CARD_1_CAPTAIN] *= (draw_0 == 'Captain' or draw_1 == 'Captain' or self.player.influence[1] == 'Captain')
             self.influence_dist[AV_EXCHNG_CARD_1_CONTESSA] *= (draw_0 == 'Contessa' or draw_1 == 'Contessa' or self.player.influence[1] == 'Contessa')
 
-            self.influence_dist[AV_EXCHNG_CARD_1_DUKE:AV_EXCHNG_CARD_1_CONTESSA+1] = th.softmax(self.influence_dist[AV_EXCHNG_CARD_0_DUKE:AV_EXCHNG_CARD_1_DUKE])
+            self.influence_dist[AV_EXCHNG_CARD_1_DUKE:AV_EXCHNG_CARD_1_CONTESSA+1] = F.softmax(self.influence_dist[AV_EXCHNG_CARD_0_DUKE:AV_EXCHNG_CARD_1_DUKE],0)
             new_card = th.multinomial(self.influence_dist[AV_EXCHNG_CARD_1_DUKE:AV_EXCHNG_CARD_1_CONTESSA+1],1)
             self.player.influence[1] = num_to_influnece(new_card)
 
