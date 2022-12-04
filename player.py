@@ -8,11 +8,11 @@ from move import *
 class Player:
     '''This is the interface between the agent and the game.'''
 
-    def __init__(self, influences: tuple, ID: int, agent : type[nn.Module]):#, game):
+    def __init__(self, influences: list, ID: int, agent : type[nn.Module]):#, game):
 
         self.coins = 2
         self.influence = influences
-        self.influence_alive = (True,True)
+        self.influence_alive = [True,True]
         self.alive = True
         
         # player ID is important for target masking in declare action
@@ -63,8 +63,11 @@ class Player:
     def lose_influence(self):
         '''Player loses their least prefered influence'''
         idx = 1 - self.influence_to_keep
-        influence = self.influences[idx]
-        self.influences[idx] = None
+        influence = self.influence[idx]
+        self.influence_alive[idx] = False
+        self.influence[idx] = None
+        if sum(self.influence_alive) ==0:
+            self.alive = False
         return influence
     
     # TODO: game interface is different, make sure these agree
@@ -108,41 +111,45 @@ class Player:
         
         # Make target mask
         target_mask = th.zeros(ACTION_VEC_LEN)
-        player_list.remove(self.player_id)
-        for k,player in enumerate(player_list):
-            if player.alive:
-                target_mask[AV_TARGET_PLAYER_1+k] = 1
+        for player in player_list:
+            if player.alive and player is not self:
+                # the < section is to account for the fact that every player thinks they are player_id 0
+                # as far as the agent is concerned. Which is why target_mask only contains player1 through 4.
+                target_mask[AV_TARGET_PLAYER_1+player.player_id+(player.player_id < self.player_id)] = 1
         
-        action_dist, influence_to_keep_dist, target_dist, exchange_dist = self.agent(game_state)
+        action_dist, influence_to_keep_dist, target_dist, exchange_dist = self.agent(game_state,action_mask,target_mask=target_mask)
         self.update_influence_to_keep(influence_to_keep_dist)
         action_choice = th.multinomial(action_dist,1)
         target_choice = th.multinomial(target_dist,1)
         target = player_list[target_choice-AV_TARGET_PLAYER_1]
 
         if action_choice == AV_INCOME:
-            return Income(self)
-        
+            action = Income(self)
+
+
         elif action_choice == AV_FOREIGN_AID:
-            return Foreign_Aid(self);
-        
+            action =  Foreign_Aid(self);
+
         elif action_choice == AV_COUP:
-            return Coup(self,target)
-        
+            action =  Coup(self,target)
+
         elif action_choice == AV_TAX:
-            return Tax(self)
-        
-        elif action_choice == AV_ASSASSINATE: 
-            return Assassinate(self,target)
+            action =  Tax(self)
+
+        elif action_choice == AV_ASSASSINATE:
+            action =  Assassinate(self,target)
 
         elif action_choice == AV_STEAL:
-            return Steal(self,target)    
+            action =  Steal(self,target)
 
         elif action_choice == AV_EXCHANGE:
-            return Exchange(self,exchange_dist)
+            action =  Exchange(self,target,exchange_dist)
         
         else:
             raise ValueError(f"invalid Action Vector choice of {action_choice} in declare action")
-            
+
+        return action
+
     #Include the action in declare block for masking purposes
     def declare_block(self,action, game_state):
         block_mask = th.zeros(ACTION_VEC_LEN)
@@ -163,13 +170,13 @@ class Player:
             block = None
         elif(block_choice == AV_BLOCK_FOREIGN_AID):
             # Note sure what to return here yet
-            block = Block(self,'Duke')
+            block = Block(self,action,'Duke')
         elif(block_choice == AV_BLOCK_STEALING_CPT):
-            block = Block(self,'Captain')
+            block = Block(self,action,'Captain')
         elif(block_choice == AV_BLOCK_STEALING_AMBS):
-            block = Block(self,'Ambassador')
+            block = Block(self,action,'Ambassador')
         elif(block_choice == AV_BLOCK_ASSASSINATION):
-            block = Block(self,'Contessa')
+            block = Block(self,action,'Contessa')
         else:
             raise ValueError(f"invalid Action Vector selection of {block_choice} in declare_block")
 
@@ -179,36 +186,26 @@ class Player:
 
         return block
 
-    def declare_challenge(self,game_state):
+    def declare_challenge(self,action,game_state):
+        if action.character == None:
+            return False
         challenge_mask = th.zeros(ACTION_VEC_LEN)
         challenge_mask[AV_CHALLENGE] = 1
         challenge_dist,influence_to_keep_dist,_,_ = self.agent(game_state,challenge_mask)
-        challenge_choice = th.multinomial(challenge_dist,1)
+        challenge_choice = single_sample(challenge_dist)
 
         self.update_influence_to_keep(influence_to_keep_dist)
-        if challenge_choice == AV_NOOP:
-            return False
-        elif challenge_choice == AV_CHALLENGE:
-            return True
-        else:
-            print(f"Something has gone horribly wrong in declare challenge. Invalid Action Vector selection of: {challenge_choice}")
-            assert(False)
+        return challenge_choice
 
     #This code is a bit repetetive compared to declare challenge, just has a different mask. 
     def declare_challenge_to_block(self,block, game_state):
         challenge_block_mask = th.zeros(ACTION_VEC_LEN)
         challenge_block_mask[AV_CHALLENGE_BLOCK] = 1
         challenge_block_dist,influence_to_keep_dist,_,_ = self.agent(game_state,challenge_block_mask)
-        challenge_block_choice = th.multinomial(challenge_block_dist,1)
+        challenge_block_choice = single_sample(challenge_block_dist)
         self.update_influence_to_keep(influence_to_keep_dist)
-        if challenge_block_choice == AV_NOOP:
-            return False
-        elif challenge_block_choice == AV_CHALLENGE_BLOCK:
-            return True
-        else:
-            print(f"Something has gone horribly wrong in declare challenge_block. Invalid Action Vector selection of: {challenge_block_choice}")
-            assert(False);          
-            
+        return challenge_block_choice
+
             
 
 

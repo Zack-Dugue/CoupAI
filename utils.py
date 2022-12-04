@@ -1,3 +1,4 @@
+import torch as th
 AV_NOOP = 0
 AV_INCOME = 1
 AV_FOREIGN_AID = 2
@@ -115,5 +116,28 @@ OMEGA_2 = 4
 OMEGA_3 = 16
 
 DECK = ['Duke', 'Duke', 'Duke', 'Assassin' , 'Assassin' , 'Assassin',  'Ambassador','Ambassador','Ambassador', 'Captain', 'Captain', 'Captain', 'Contessa' , 'Contessa', 'Contessa']
+
+def influence_to_num(influence : str):
+    if influence == 'Duke': return 0
+    if influence == 'Assassin': return 1
+    if influence == 'Ambassador': return 2
+    if influence == 'Captain': return 3
+    if influence == 'Contessa': return 4
+
+def num_to_influnece(num : int):
+    if num == 0: return 'Duke'
+    if num == 1: return 'Assassin'
+    if num == 2: return'Ambassador'
+    if num == 3: return 'Captain'
+    if num == 4: return 'Contessa'
+    ValueError("number being converted is not 0-4")
+
+
+def single_sample(distribution : th.Tensor):
+    '''Single Sample looks through the whole distribution and finds the one positive value
+    That positive value is treated as the probabilty in itself, and is sampled from. '''
+    idx = distribution > 0
+    assert(sum(idx) == 1)
+    return th.rand(1)[0] < distribution[idx]
 
 # Start writing code here...

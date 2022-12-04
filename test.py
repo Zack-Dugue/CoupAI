@@ -12,7 +12,7 @@ def main():
     deck = DECK.copy()
     random.shuffle(deck)
     for i in range(5):
-        player_list.append(Player((deck.pop(0),deck.pop(1)), i,RandomAgent))
+        player_list.append(Player([deck.pop(0),deck.pop(1)], i,RandomAgent()))
     game = Game(player_list,deck)
     game.loop()
 if __name__ == "__main__":

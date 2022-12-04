@@ -1,7 +1,9 @@
 import random
 from utils import *
 from move import *
-
+from player import Player
+#numpy is just for the Fourier Feature stuff
+import numpy as np
 
 
 # Start writing code here...
@@ -14,8 +16,23 @@ class Game:
         
         self.deck = deck
         self.players = players
-        self.game_state = None # TODO
+        self.game_state_init(players)
         self.num_alive = len(self.players) # TODO
+
+
+    def game_state_init(self,players):
+        game_state = th.zeros([5,GAME_STATE_VEC_LEN])
+        for player in players:
+            id = player.player_id
+            game_state[id,GSV_ACTING_PLAYER_0 + id] = 1
+            game_state[id,GSV_ACTION_EXCHANGE] = 1
+            influence_0 = player.influence[0]
+            influence_1 = player.influence[1]
+            game_state[id,GSV_EXCHANGE_CARD1_SEEN_DUKE + influence_to_num(influence_0)] = 1
+            game_state[id,GSV_EXCHANGE_CARD2_SEEN_DUKE + influence_to_num(influence_1)] = 1
+            game_state[id,GSV_EXCHANGE_SWAP_1_1] = 1
+            game_state[id,GSV_EXCHANGE_SWAP_2_2] = 1
+        self.game_state = game_state
 
     def update_gs_action(self, action):
         '''update game state after an action.'''
@@ -31,13 +48,12 @@ class Game:
         if type(action) == type(Steal): self.game_state[-1][GSV_ACTION_STEAL] = 1
 
 
-
     def get_challenger(self,action):
         '''Check if any player wants to challenge the action, and if so, return the challenger (else return None).'''
 
         for player in self.players[:-1]:
-            if player.declare_challenge(action, self.game_state):
-                game_state[-1][GSV_CHALLENGE_BY_PLAYER_0 + player.player_id] = 1
+            if player.declare_challenge(action,self.game_state):
+                self.game_state[-1][GSV_CHALLENGE_BY_PLAYER_0 + player.player_id] = 1
                 return player
 
         return None
@@ -49,12 +65,12 @@ class Game:
             for player in self.players[:-1]:
                 block = player.declare_block(action, self.game_state)
                 if block is not None: 
-                    if block.card == "Duke":
+                    if block.character == "Duke":
                         self.game_state[-1][GSV_BLOCK_FOREIGN_AID] = 1
                         self.game_state[-1][GSV_TARGET_PLAYER_0 + player.player_id]
-                    elif block.card == "Captain": self.game_state[-1][GSV_BLOCK_STEALING_CAPTAIN] = 1
-                    elif block.card == "Ambassador": self.game_state[-1][GSV_BLOCK_STEALING_AMBASSADOR] =1
-                    elif block.card == "Contessa": self.game_state[-1][GSV_BLOCK_ASSASSINATION] = 1
+                    elif block.character == "Captain": self.game_state[-1][GSV_BLOCK_STEALING_CAPTAIN] = 1
+                    elif block.character == "Ambassador": self.game_state[-1][GSV_BLOCK_STEALING_AMBASSADOR] =1
+                    elif block.character == "Contessa": self.game_state[-1][GSV_BLOCK_ASSASSINATION] = 1
 
                     return block
         return None
@@ -80,27 +96,28 @@ class Game:
 
 
         
-    def do_challenge(self, challenger: Player, move: Move, card: str):
+    def do_challenge(self, challenger: Player, move: Move):
         '''Do challenge and return `True` if challenge was succesful (i.e. the player was not allowed to play the action).'''
         player = move.player
+        card = move.character
         if move.is_valid():
             influence = challenger.lose_influence()
-    
+
             # player gets a new card
             self.deck.append(card)
             self.shuffle_deck()
             new_card = self.deck.pop(0)
             if move.player.influence[0] == card and move.player.influence_alive[0]:
                 move.player.influence[0] = card
-            elif move.player.influnece[1] == card and move.player.influence_alive[1]:
+            elif move.player.influence[1] == card and move.player.influence_alive[1]:
                 move.player.influence[1] = card
             else:
                 ValueError("player does not have card that is object of challenge despite winning challenge")
 
             return True
         else: 
-            influence = player.lose_influence()
-            self.add_influence(influence)
+            influence_lost = player.lose_influence()
+            #TODO add GSV stuff to this
             False
             
     def get_player_idx(self, player):
@@ -132,24 +149,27 @@ class Game:
         turn = 0
         round = 0
         while not self.game_over():
-            
+            turn += 1
+            round = turn//5
+            print(f"round {round} : turn {turn}")
             if turn % 5 == 0:
-                self.game_state.append(th.zeros(GAME_STATE_VEC_LEN))
-                self.game_state[GSV_ROUND_FF1S] = F.sin(round*(1/OMEGA_1)*2*th.pi)
-                self.game_state[GSV_ROUND_FF1C] = F.cos(round*(1/OMEGA_1)*2*th.pi)
-                self.game_state[GSV_ROUND_FF2S] = F.sin(round*(1/OMEGA_2)*2*th.pi)
-                self.game_state[GSV_ROUND_FF2C] = F.sin(round*(1/OMEGA_2)*2*th.pi)
-                self.game_state[GSV_ROUND_FF3S] = F.sin(round*(1/OMEGA_3)*2*th.pi)
-                self.game_state[GSV_ROUND_FF3C] = F.sin(round*(1/OMEGA_3)*2*th.pi)
-            
+                self.game_state  = th.concatenate([self.game_state, th.zeros([1,GAME_STATE_VEC_LEN])],0)
+                self.game_state[-1,GSV_ROUND_FF1S] = np.sin(round*(1/OMEGA_1)*2*np.pi)
+                self.game_state[-1,GSV_ROUND_FF1C] = np.cos(round*(1/OMEGA_1)*2*np.pi)
+                self.game_state[-1,GSV_ROUND_FF2S] = np.sin(round*(1/OMEGA_2)*2*np.pi)
+                self.game_state[-1,GSV_ROUND_FF2C] = np.cos(round*(1/OMEGA_2)*2*np.pi)
+                self.game_state[-1,GSV_ROUND_FF3S] = np.sin(round*(1/OMEGA_3)*2*np.pi)
+                self.game_state[-1,GSV_ROUND_FF3C] = np.cos(round*(1/OMEGA_3)*2*np.pi)
             # Choose the player to play an action. This player will be pushed to the end of `self.players`
             player = self.players[0]
             self.players = self.players[1:] + [player]
-            action = player.declare_action(self.game_state)
+            if not player.alive:
+                continue
+            action = player.declare_action(self.players, self.game_state)
             
             # challenge
             challenger = self.get_challenger(action)
-            if (challenger is not None) and self.do_challenge(challenger, action): 
+            if (challenger is not None) and self.do_challenge(challenger, action):
                 self.game_state[-1][GSV_CHALLENGE_SUCCESS] = 1
                 continue
                     
@@ -166,5 +186,5 @@ class Game:
                     continue
 
             action.do_action(self.deck)
-        
+
         # TODO: return rewards to each player

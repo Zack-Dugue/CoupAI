@@ -1,13 +1,26 @@
 import torch as th
+from utils import *
 from torch import nn
 from torch import functional as F
 
-card_to_keep_mask = th.zeros(31)
-card_to_keep_mask[19] = 1
-card_to_keep_mask[20] = 1
-exchange_mask = th.zeros(31)
-exchange_mask[21:] = 1
+card_to_keep_mask = th.zeros(ACTION_VEC_LEN)
+card_to_keep_mask[AV_KEEP_CARD_0] = 1
+card_to_keep_mask[AV_KEEP_CARD_1] = 1
+exchange_mask = th.zeros(ACTION_VEC_LEN)
+exchange_mask[AV_EXCHNG_CARD_0_DUKE:AV_EXCHNG_CARD_1_CONTESSA + 1] = 1
 
+class SofterMax(nn.Module):
+    def __init__(self):
+        super(SofterMax, self).__init__()
+        self.softmax = nn.Softmax()
+        self.sigmoid = nn.Sigmoid()
+    def forward(self,x,mask):
+        mask_inds = mask > 0
+        x = x*mask
+        if len(mask_inds) == 1:
+            x[mask_inds] = self.sigmoid(x[mask_inds])
+        x[mask_inds] = self.softmax(x[mask_inds])
+        return x
 
 class GEGelU(nn.Module):
     def __init__(self,dim):
@@ -54,13 +67,14 @@ class Agent(nn.Module):
 class RandomAgent(nn.Module):
     def __init__(self):
         super(RandomAgent,self).__init__()
+        self.softermax = SofterMax()
 
 
     def forward(self, game_state : th.Tensor, action_mask: th.Tensor, target_mask=th.zeros(30)):
-        action_state =  th.ones(30)
-        actions = th.softmax(action_state * action_mask,1)
-        cards_to_keep = th.softmax(action_state*card_to_keep_mask,1)
-        exchange_dist = th.softmax(action_state*exchange_mask,1)
-        targets = th.softmax(action_state*target_mask,1)
+        action_state =  th.ones(ACTION_VEC_LEN)
+        actions = self.softermax(action_state,action_mask)
+        cards_to_keep = self.softermax(action_state,card_to_keep_mask)
+        exchange_dist = self.softermax(action_state,exchange_mask)
+        targets = self.softermax(action_state,target_mask)
         return actions,cards_to_keep,targets,exchange_dist  
 
