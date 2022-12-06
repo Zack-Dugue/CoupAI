@@ -99,11 +99,17 @@ class Player:
         game_state[acting_turns] *= WAS_MY_ACTION_MASK
         blocking_turns = game_state[:,GSV_TARGET_PLAYER_0 + self.player_id] == 1
         game_state[blocking_turns] *= WAS_MY_BLOCK_MASK
-        old_game_state = game_state.copy()
+        #ensure that every player thinks they are player 0
+        # permutation = PLAYER_ORDERING_PERMUTATIONS[self.player_id]
+        # game_state[:,GSV_ACTING_PLAYER_0:GSV_ACTING_PLAYER_4+1]
+        th.permute(game_state[:,GSV_TARGET_PLAYER_0:GSV_ACTING_PLAYER_4+1],permutation)
+        th.permute(game_state[:,GSV_CHALLENGE_BY_PLAYER_0:GSV_CHALLENGE_BY_PLAYER_4+1],permutation)
+        th.permute(game_state[:,GSV_CHALLENGE_BLOCK_BY_PLAYER_0:GSV_CHALLENGE_BLOCK_BY_PLAYER_4+1],permutation)
+        rand_tens = th.rand([10])
         return game_state
 
     def declare_action(self, player_list: list, game_state):
-    
+
         #Make Action Mask
         action_mask = th.zeros(ACTION_VEC_LEN)
         if self.coins >= 10:
@@ -111,14 +117,14 @@ class Player:
         else:
             action_mask[AV_INCOME] = 1
             action_mask[AV_FOREIGN_AID] = 1
-            if self.coins >= 3: 
+            if self.coins >= 3:
                 action_mask[AV_ASSASSINATE] = 1
             elif self.coins >= 7:
                 action_mask[AV_COUP] = 1
             action_mask[AV_TAX] = 1
             action_mask[AV_EXCHANGE] = 1
             action_mask[AV_STEAL] = 1
-        
+
         # Make target mask
         target_mask = th.zeros(ACTION_VEC_LEN)
         for player in player_list:
@@ -126,12 +132,21 @@ class Player:
                 # the < section is to account for the fact that every player thinks they are player_id 0
                 # as far as the agent is concerned. Which is why target_mask only contains player1 through 4.
                 target_mask[AV_TARGET_PLAYER_1+player.player_id+(player.player_id < self.player_id)] = 1
-        game_state = self.mask_gsv(game_state)
+        # game_state = self.mask_gsv(game_state)
         action_dist, influence_to_keep_dist, target_dist, exchange_dist = self.agent(game_state,action_mask,target_mask=target_mask)
         self.update_influence_to_keep(influence_to_keep_dist)
         action_choice = th.multinomial(action_dist,1)
+        #choose target
         target_choice = th.multinomial(target_dist,1)
-        target = player_list[target_choice-AV_TARGET_PLAYER_1]
+        appropriate_permutation = PLAYER_ORDERING_PERMUTATIONS[self.player_id]
+        player_index = appropriate_permutation[target_choice-AV_TARGET_PLAYER_1]
+        assert(player_index != self.player_id)
+        true_order_player_list = [None]*5
+        for player in player_list:
+            true_order_player_list[player.player_id] = player
+        target = true_order_player_list[player_index]
+        assert(target != self)
+        assert(target.alive)
 
         if action_choice == AV_INCOME:
             action = Income(self)
