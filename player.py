@@ -91,7 +91,17 @@ class Player:
     # def block(self, action):
     #     # return None
     #     return blocking_card
-    
+
+
+    def mask_gsv(self,game_state):
+        game_state *= NOT_MY_TURN_MASK
+        acting_turns = game_state[:,GSV_ACTING_PLAYER_0 + self.player_id] == 1
+        game_state[acting_turns] *= WAS_MY_ACTION_MASK
+        blocking_turns = game_state[:,GSV_TARGET_PLAYER_0 + self.player_id] == 1
+        game_state[blocking_turns] *= WAS_MY_BLOCK_MASK
+        old_game_state = game_state.copy()
+        return game_state
+
     def declare_action(self, player_list: list, game_state):
     
         #Make Action Mask
@@ -116,7 +126,7 @@ class Player:
                 # the < section is to account for the fact that every player thinks they are player_id 0
                 # as far as the agent is concerned. Which is why target_mask only contains player1 through 4.
                 target_mask[AV_TARGET_PLAYER_1+player.player_id+(player.player_id < self.player_id)] = 1
-        
+        game_state = self.mask_gsv(game_state)
         action_dist, influence_to_keep_dist, target_dist, exchange_dist = self.agent(game_state,action_mask,target_mask=target_mask)
         self.update_influence_to_keep(influence_to_keep_dist)
         action_choice = th.multinomial(action_dist,1)

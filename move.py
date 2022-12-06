@@ -48,7 +48,7 @@ class Action(Move):
         '''
         ...
 
-    def do_action(self, deck : list):
+    def do_action(self, deck : list, game_state):
         '''
         Carry out the action (i.e. target gets assasinated).
         This is left intentionall blank.
@@ -64,7 +64,7 @@ class Income(Action):
         super(Income,self).__init__(player, None, None,[])
 
 
-    def do_action(self, deck : list):
+    def do_action(self, deck : list, game_state):
         self.player.coins += 2
 
 class Foreign_Aid(Action):
@@ -72,7 +72,7 @@ class Foreign_Aid(Action):
     def __init__(self, player):
         super().__init__(player, None, None, ['Duke'])
 
-    def do_action(self, deck : list):
+    def do_action(self, deck : list, game_state):
         self.player.coins += 2
 
 class Coup(Action):
@@ -84,7 +84,7 @@ class Coup(Action):
     def incur_costs(self):
         self.player.coins -= 7
 
-    def do_action(self, deck : list):
+    def do_action(self, deck : list, game_state):
         self.target.lose_influence()
 
 class Tax(Action):
@@ -92,7 +92,7 @@ class Tax(Action):
     def __init__(self, player):
         super().__init__(player, None, 'Duke', [])
 
-    def do_action(self, deck : list):
+    def do_action(self, deck : list, game_state):
         self.player.coins += 3
 
 
@@ -105,7 +105,7 @@ class Assassinate(Action):
     def incur_costs(self):
         self.player.coins -= 3
 
-    def do_action(self, deck: list):
+    def do_action(self, deck : list, game_state):
         self.target.lose_influence()
 
 class Exchange(Action):
@@ -121,9 +121,11 @@ class Exchange(Action):
     # the other classes are pretty much self contained.
     # This one edge case makes the whole action as a class thing kinda painful. Rip.
     #TODO finish this:
-    def do_action(self, deck : list):
+    def do_action(self, deck : list, game_state):
         draw_0 = deck.pop(0)
         draw_1 = deck.pop(0)
+        game_state[-1,GSV_EXCHANGE_CARD1_SEEN_DUKE + influence_to_num(draw_0)] = 1
+        game_state[-1,GSV_EXCHANGE_CARD2_SEEN_DUKE + influence_to_num(draw_1)] = 1
         old_influence = self.player.influence.copy()
         mask = th.zeros(ACTION_VEC_LEN)
         if(self.player.influence_alive[0]):
@@ -141,10 +143,12 @@ class Exchange(Action):
             if new_card == draw_0:
                 draw_0 = None
                 deck.append(old_influence[0])
+                game_state[-1,GSV_EXCHANGE_SWAP_1_1] = 1
 
             elif new_card == draw_1:
                 draw_1 = None
                 deck.append(old_influence[0])
+                game_state[-1,GSV_EXCHANGE_SWAP_1_2] =1
 
         mask = th.zeros(ACTION_VEC_LEN)
         if(self.player.influence_alive[1]):
@@ -160,9 +164,12 @@ class Exchange(Action):
             self.player.influence[1] = new_card
             if new_card == draw_0:
                 draw_0 = None
+                game_state[-1,GSV_EXCHANGE_SWAP_2_1] = 1
                 deck.append(old_influence[1])
+
             elif new_card == draw_1:
                 draw_1 = None
+                game_state[-1,GSV_EXCHANGE_SWAP_2_2] = 1
                 deck.append(old_influence[1])
 
         if draw_0 is not None:
@@ -179,6 +186,6 @@ class Steal(Action):
     def __init__(self, player, target):
         super().__init__(player, target, 'Captain', ['Ambassador', 'Captain'])
 
-    def do_action(self, deck : list):
+    def do_action(self, deck : list, game_state):
         num_coins = self.target.lose_coins(2)
         self.player.coins += num_coins
