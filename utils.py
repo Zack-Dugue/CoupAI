@@ -193,7 +193,7 @@ NOT_MY_TURN_MASK[GSV_ACTION_INCOME: GSV_ACTION_STEAL + 1] = 1
 #The associated cost or profit
 NOT_MY_TURN_MASK[GSV_COST_PROFIT] = 1
 #The fourier features of the round
-NOT_MY_TURN_MASK[GSV_ROUND_FF1S: GSV_ROUND_FF3C + 1] = 1
+NOT_MY_TURN_MASK[GSV_ROUND_FF1S: GSV_ROUND_FF4C + 1] = 1
 #What phase of the turn it is / wether this round is the "active" round or not.
 NOT_MY_TURN_MASK[GSV_PHASE_ACTION:GSV_ACTIVE_ROUND + 1] = 1
 #What swaps the opponent made in an exchange.
