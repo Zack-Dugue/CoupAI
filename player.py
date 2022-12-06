@@ -100,7 +100,7 @@ class Player:
         blocking_turns = game_state[:,GSV_TARGET_PLAYER_0 + self.player_id] == 1
         game_state[blocking_turns] *= WAS_MY_BLOCK_MASK
         #ensure that every player thinks they are player 0
-        # permutation = PLAYER_ORDERING_PERMUTATIONS[self.player_id]
+        permutation = PLAYER_ORDERING_PERMUTATIONS[self.player_id]
         # game_state[:,GSV_ACTING_PLAYER_0:GSV_ACTING_PLAYER_4+1]
         th.permute(game_state[:,GSV_TARGET_PLAYER_0:GSV_ACTING_PLAYER_4+1],permutation)
         th.permute(game_state[:,GSV_CHALLENGE_BY_PLAYER_0:GSV_CHALLENGE_BY_PLAYER_4+1],permutation)
