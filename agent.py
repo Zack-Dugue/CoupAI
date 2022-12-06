@@ -44,16 +44,33 @@ class MyPool(nn.Module):
         self.length = length
     def forward(self, input):
         return th.sum(input, self.dim)/self.length
+
+class LearnedQueryAttention(nn.Module):
+    '''a potential replacement for avg pool at the end
+    that uses learned query attention to extract the features which get passed
+    on to the end feed forward part'''
+    #WORK IN PROGRESS
+    def __init__(self, dim,num_queries):
+        super(LearnedQueryAttention, self).__init__()
+        self.learned_queries = th.random(num_queries,dim)
+
+    def forward(self,input):
+        attention = th.matmul(input,self.learned_queries)
+
 class Agent(nn.Module):
     def __init__(self):
         super(Agent, self).__init__()
         self.softermax = SofterMax()
         self.model = nn.Sequential()
-        self.model.add_module('layer_1 transformer', nn.TransformerEncoderLayer(GAME_STATE_VEC_LEN,2))
-        self.model.add_module('layer_2 transformer', nn.TransformerEncoderLayer(GAME_STATE_VEC_LEN,2))
-        self.model.add_module('layer_3 transformer', nn.TransformerEncoderLayer(GAME_STATE_VEC_LEN,2))
-        self.model.add_module('layer_4 transformer', nn.TransformerEncoderLayer(GAME_STATE_VEC_LEN,2))
-        self.model.add_module('layer_5 transformer', nn.TransformerEncoderLayer(GAME_STATE_VEC_LEN,2))
+        self.model.add_module('layer_1 transformer', nn.TransformerEncoderLayer(GAME_STATE_VEC_LEN,8,dropout=0))
+        self.model.add_module('layer_2 transformer', nn.TransformerEncoderLayer(GAME_STATE_VEC_LEN,8,dropout=0))
+        self.model.add_module('layer_3 transformer', nn.TransformerEncoderLayer(GAME_STATE_VEC_LEN,4,dropout=0))
+        self.model.add_module('layer_4 transformer', nn.TransformerEncoderLayer(GAME_STATE_VEC_LEN,4,dropout=0))
+        self.model.add_module('layer_5 transformer', nn.TransformerEncoderLayer(GAME_STATE_VEC_LEN,2,dropout=0))
+        self.model.add_module('layer_6 transformer', nn.TransformerEncoderLayer(GAME_STATE_VEC_LEN,2,dropout=0))
+        self.model.add_module('layer_7 transformer', nn.TransformerEncoderLayer(GAME_STATE_VEC_LEN,1,dropout=0))
+        self.model.add_module('layer_8 transformer', nn.TransformerEncoderLayer(GAME_STATE_VEC_LEN,1,dropout=0))
+
         self.model.add_module('avg_pooling',  MyPool(1,GAME_STATE_VEC_LEN))
         self.model.add_module('FC1', nn.Linear(GAME_STATE_VEC_LEN,4096))
         self.model.add_module('non_linearity_1', GEGelU(2048))

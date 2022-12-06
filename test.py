@@ -8,15 +8,17 @@ import torch.nn as nn
 import torch.functional as F
 
 def test_1():
-    ITERATIONS = 200
+    ITERATIONS = 500
+
     for j in range(ITERATIONS):
         player_list = []
         deck = DECK.copy()
         random.shuffle(deck)
         for i in range(5):
-            player_list.append(Player([deck.pop(0),deck.pop(1)], i,RandomAgent()))
+            player_list.append(Player([deck.pop(0),deck.pop(1)], i,Agent()))
         game = Game(player_list,deck)
         game.loop()
+
         print(f"Game {j} success")
 
 def test_2():

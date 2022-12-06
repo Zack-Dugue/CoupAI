@@ -183,21 +183,29 @@ class Game:
             round = turn//5
             print(f"round {round} : turn {turn}")
             self.check_game()
-            self.game_state[-1,GSV_ACTIVE_ROUND] = 0
-            self.game_state  = th.concatenate([self.game_state, th.zeros([1,GAME_STATE_VEC_LEN])],0)
-            self.game_state[-1,GSV_ROUND_FF1S] = np.sin(round*(1/OMEGA_1)*2*np.pi)
-            self.game_state[-1,GSV_ROUND_FF1C] = np.cos(round*(1/OMEGA_1)*2*np.pi)
-            self.game_state[-1,GSV_ROUND_FF2S] = np.sin(round*(1/OMEGA_2)*2*np.pi)
-            self.game_state[-1,GSV_ROUND_FF2C] = np.cos(round*(1/OMEGA_2)*2*np.pi)
-            self.game_state[-1,GSV_ROUND_FF3S] = np.sin(round*(1/OMEGA_3)*2*np.pi)
-            self.game_state[-1,GSV_ROUND_FF3C] = np.cos(round*(1/OMEGA_3)*2*np.pi)
-            self.game_state[-1,GSV_ACTIVE_ROUND] = 1
-            # Choose the player to play an action. This player will be pushed to the end of `self.players`
+
             player = self.players[0]
             self.players = self.players[1:] + [player]
             if not player.alive:
                 print(f"\t player {player.player_id} is dead")
                 continue
+
+            self.game_state[-1,GSV_ACTIVE_ROUND] = 0
+            self.game_state  = th.concatenate([self.game_state, th.zeros([1,GAME_STATE_VEC_LEN])],0)
+            #Fourier Feature temporal encodings
+            # (the + 1 on the first sine is because the sin is always 0 otherwise)
+            # for the other ones though it's not redundant to have the sin and cos
+            self.game_state[-1,GSV_ROUND_FF1S] = np.sin(round*(1/(OMEGA_1+1))*2*np.pi)
+            self.game_state[-1,GSV_ROUND_FF1C] = np.cos(round*(1/OMEGA_1)*2*np.pi)
+            self.game_state[-1,GSV_ROUND_FF2S] = np.sin(round*(1/OMEGA_2)*2*np.pi)
+            self.game_state[-1,GSV_ROUND_FF2C] = np.cos(round*(1/OMEGA_2)*2*np.pi)
+            self.game_state[-1,GSV_ROUND_FF3S] = np.sin(round*(1/OMEGA_3)*2*np.pi)
+            self.game_state[-1,GSV_ROUND_FF3C] = np.cos(round*(1/OMEGA_3)*2*np.pi)
+            self.game_state[-1,GSV_ROUND_FF4S] = np.sin(round*(1/OMEGA_4)*2*np.pi)
+            self.game_state[-1,GSV_ROUND_FF4C] = np.cos(round*(1/OMEGA_4)*2*np.pi)
+            self.game_state[-1,GSV_ACTIVE_ROUND] = 1
+            # Choose the player to play an action. This player will be pushed to the end of `self.players`
+
             #putting these before declare action is important so that the agent has the right input
             self.game_state[-1,GSV_PHASE_ACTION] = 1
             self.game_state[-1, GSV_ACTING_PLAYER_0 +player.player_id] = 1
