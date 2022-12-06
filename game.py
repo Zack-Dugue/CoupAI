@@ -21,6 +21,8 @@ class Game:
 
 
     def game_state_init(self,players):
+        '''Initialize the game state so that all the players know what their initial cards are.
+        This is done through a fake exchange tht each player does at time 0,0. '''
         game_state = th.zeros([5,GAME_STATE_VEC_LEN])
         for player in players:
             id = player.player_id
@@ -37,7 +39,6 @@ class Game:
 
     def update_gs_action(self, action):
         '''update game state after an action.'''
-        self.game_state[-1,GSV_ACTING_PLAYER_0+action.player.player_id] = 1
         if action.target is not None:
             self.game_state[-1,GSV_TARGET_PLAYER_0 + action.target.player_id] = 1
         if type(action) == type(Income): self.game_state[-1,GSV_ACTION_INCOME] = 1
@@ -75,7 +76,7 @@ class Game:
                 if block is not None: 
                     if block.character == "Duke":
                         self.game_state[-1][GSV_BLOCK_FOREIGN_AID] = 1
-                        self.game_state[-1][GSV_TARGET_PLAYER_0 + player.player_id]
+                        self.game_state[-1][GSV_TARGET_PLAYER_0 + player.player_id] = 1
                     elif block.character == "Captain": self.game_state[-1][GSV_BLOCK_STEALING_CAPTAIN] = 1
                     elif block.character == "Ambassador": self.game_state[-1][GSV_BLOCK_STEALING_AMBASSADOR] =1
                     elif block.character == "Contessa": self.game_state[-1][GSV_BLOCK_ASSASSINATION] = 1
@@ -113,13 +114,16 @@ class Game:
         card = move.character
         if move.is_valid():
             influence = challenger.lose_influence()
+            #Updates the appropriate part of the GSV based on what influence was lost and wether its a block or not
             if issubclass(move.__class__,Action):
                 self.game_state[-1,GSV_CARD_REVEALED_CHALLENGE_DUKE + influence_to_num(influence)] = 1
             elif issubclass(move.__class__,Block):
                 self.game_state[-1,GSV_CARD_REVEALED_CHALLENGE_BLOCK_DUKE + influence_to_num(influence)] = 1
 
 
-            # player gets a new card
+            # player swaps for a new card
+            # This is done in game to make it easy to update the gamestate. 
+            # (could maybe be moved to player)
             self.deck.append(card)
             self.shuffle_deck()
             new_card = self.deck.pop(0)
@@ -137,8 +141,13 @@ class Game:
 
             return False
         else: 
-            influence_lost = player.lose_influence()
-            #TODO add GSV stuff to this
+            influence = player.lose_influence()
+                #Updates the appropriate part of the GSV based on what influence was lost and wether its a bock or not
+            if issubclass(move.__class__,Action):
+                self.game_state[-1,GSV_CARD_REVEALED_CHALLENGE_DUKE + influence_to_num(influence)] = 1
+            elif issubclass(move.__class__,Block):
+                self.game_state[-1,GSV_CARD_REVEALED_CHALLENGE_BLOCK_DUKE + influence_to_num(influence)] = 1
+
             return    True
             
     def get_player_idx(self, player):
@@ -189,7 +198,9 @@ class Game:
             if not player.alive:
                 print(f"\t player {player.player_id} is dead")
                 continue
+            #putting these before declare action is important so that the agent has the right input
             self.game_state[-1,GSV_PHASE_ACTION] = 1
+            self.game_state[-1, GSV_ACTING_PLAYER_0 +player.player_id] = 1
             action = player.declare_action(self.players, self.game_state)
             self.game_state[-1,GSV_PHASE_ACTION] = 0
 

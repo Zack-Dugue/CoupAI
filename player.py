@@ -37,9 +37,9 @@ class Player:
     
     def update_influence_to_keep(self, influence_to_keep_dist):
         '''
-        this updates which card to keep
+        this updates the player's preference for which influence they'd prefer to keep,
+        in the event that they have to give up an influence. 
         '''
-        # Huh? TODO
         
         if self.influence_alive[0]:
             self.influence_to_keep = 1
@@ -52,9 +52,7 @@ class Player:
             assert(influence_to_keep_choice == AV_KEEP_CARD_0 or influence_to_keep_choice == AV_KEEP_CARD_1)
             self.influence_to_keep = influence_to_keep_choice - AV_KEEP_CARD_0
 
-    def return_card(self, character: str):
-        if self.influence[0] == character and self.influence_alive[0]:
-            return 
+
             
     def receive_card(self, card):
         ... # TODO
@@ -70,18 +68,7 @@ class Player:
             self.alive = False
         return influence
     
-    # TODO: game interface is different, make sure these agree
-    def swap_influence(self, influence_idx: int,  deck):
-        '''
-        called after winning a challenge
-        a player swaps either their 0th or 1st influence (based on character) with a card in the deck
-        '''   
-        assert influence_idx==0 or influence_idx==1, f'influence_idx is invalid (must be 0 or 1 but is {influence_idx})'
-        character = self.influence[influence_idx]
-        deck.append(character)
-        random.shuffle(deck)
-        new_influence = deck.pop(0)
-        self.influence[influence_idx] = new_influence
+
     
     
     
@@ -94,21 +81,40 @@ class Player:
 
 
     def mask_gsv(self,game_state):
-        game_state *= NOT_MY_TURN_MASK
+        # mask the game state based on what players should or should not know.
+        mask = th.zeros(game_state.shape)
+        mask[:] = NOT_MY_TURN_MASK
         acting_turns = game_state[:,GSV_ACTING_PLAYER_0 + self.player_id] == 1
-        game_state[acting_turns] *= WAS_MY_ACTION_MASK
+        mask[acting_turns, :] += WAS_MY_ACTION_MASK
         blocking_turns = game_state[:,GSV_TARGET_PLAYER_0 + self.player_id] == 1
-        game_state[blocking_turns] *= WAS_MY_BLOCK_MASK
+        mask[blocking_turns,:] += WAS_MY_BLOCK_MASK
+        game_state = game_state*mask
+
+
         #ensure that every player thinks they are player 0
+
         permutation = PLAYER_ORDERING_PERMUTATIONS[self.player_id]
-        # game_state[:,GSV_ACTING_PLAYER_0:GSV_ACTING_PLAYER_4+1]
-        th.permute(game_state[:,GSV_TARGET_PLAYER_0:GSV_ACTING_PLAYER_4+1],permutation)
-        th.permute(game_state[:,GSV_CHALLENGE_BY_PLAYER_0:GSV_CHALLENGE_BY_PLAYER_4+1],permutation)
-        th.permute(game_state[:,GSV_CHALLENGE_BLOCK_BY_PLAYER_0:GSV_CHALLENGE_BLOCK_BY_PLAYER_4+1],permutation)
-        rand_tens = th.rand([10])
+        tensor_to_perm = game_state[:,GSV_ACTING_PLAYER_0:GSV_ACTING_PLAYER_4+1]
+        tensor_to_perm = tensor_to_perm[:,permutation]
+        game_state[:,GSV_ACTING_PLAYER_0:GSV_ACTING_PLAYER_4+1] = tensor_to_perm
+
+        tensor_to_perm = game_state[:, GSV_TARGET_PLAYER_0:GSV_TARGET_PLAYER_4 + 1]
+        tensor_to_perm = tensor_to_perm[:,permutation]
+        game_state[:, GSV_TARGET_PLAYER_0:GSV_TARGET_PLAYER_4 + 1] = tensor_to_perm[:, permutation]
+
+        tensor_to_perm = game_state[:, GSV_CHALLENGE_BY_PLAYER_0:GSV_CHALLENGE_BY_PLAYER_4 + 1]
+        tensor_to_perm = tensor_to_perm[:,permutation]
+        game_state[:, GSV_CHALLENGE_BY_PLAYER_0:GSV_CHALLENGE_BY_PLAYER_4 + 1] = tensor_to_perm[:, permutation]
+
+        tensor_to_perm = game_state[:, GSV_CHALLENGE_BLOCK_BY_PLAYER_0:GSV_CHALLENGE_BLOCK_BY_PLAYER_4 + 1]
+        tensor_to_perm = tensor_to_perm[:,permutation]
+        game_state[:, GSV_CHALLENGE_BLOCK_BY_PLAYER_0:GSV_CHALLENGE_BLOCK_BY_PLAYER_4 + 1] = tensor_to_perm[:, permutation]
+        #Check the initialization token to see that the reordering is correct
+        assert(game_state[self.player_id, GSV_ACTING_PLAYER_0] == 1)
         return game_state
 
     def declare_action(self, player_list: list, game_state):
+        '''Declare what action the player is going to take'''
 
         #Make Action Mask
         action_mask = th.zeros(ACTION_VEC_LEN)
@@ -132,8 +138,9 @@ class Player:
                 # the < section is to account for the fact that every player thinks they are player_id 0
                 # as far as the agent is concerned. Which is why target_mask only contains player1 through 4.
                 target_mask[AV_TARGET_PLAYER_1+player.player_id+(player.player_id < self.player_id)] = 1
-        # game_state = self.mask_gsv(game_state)
+        game_state = self.mask_gsv(game_state)
         action_dist, influence_to_keep_dist, target_dist, exchange_dist = self.agent(game_state,action_mask,target_mask=target_mask)
+        
         self.update_influence_to_keep(influence_to_keep_dist)
         action_choice = th.multinomial(action_dist,1)
         #choose target
@@ -153,7 +160,7 @@ class Player:
 
 
         elif action_choice == AV_FOREIGN_AID:
-            action =  Foreign_Aid(self);
+            action =  Foreign_Aid(self)
 
         elif action_choice == AV_COUP:
             action =  Coup(self,target)

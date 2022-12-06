@@ -11,10 +11,16 @@ exchange_mask[AV_EXCHNG_CARD_0_DUKE:AV_EXCHNG_CARD_1_CONTESSA + 1] = 1
 
 class SofterMax(nn.Module):
     def __init__(self):
+        '''Softer Max first masks the input x, 
+        and then performs a softmax operation only over the (un)masked region.
+        If there is only one unmasked element, it applies a sigmoid over that element.
+        
+        SofterMax returns the same shape as the input'''
         super(SofterMax, self).__init__()
         self.softmax = nn.Softmax()
         self.sigmoid = nn.Sigmoid()
     def forward(self,x,mask):
+
         mask_inds = mask > 0
         x = x*mask
         if sum(mask_inds) == 1:
