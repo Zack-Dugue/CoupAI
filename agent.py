@@ -17,9 +17,10 @@ class SofterMax(nn.Module):
     def forward(self,x,mask):
         mask_inds = mask > 0
         x = x*mask
-        if len(mask_inds) == 1:
+        if sum(mask_inds) == 1:
             x[mask_inds] = self.sigmoid(x[mask_inds])
-        x[mask_inds] = self.softmax(x[mask_inds])
+        else:
+            x[mask_inds] = self.softmax(x[mask_inds])
         return x
 
 class GEGelU(nn.Module):

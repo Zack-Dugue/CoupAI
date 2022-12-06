@@ -65,7 +65,7 @@ class Player:
         idx = 1 - self.influence_to_keep
         influence = self.influence[idx]
         self.influence_alive[idx] = False
-        self.influence[idx] = None
+        # self.influence[idx] = None
         if sum(self.influence_alive) ==0:
             self.alive = False
         return influence
@@ -192,7 +192,8 @@ class Player:
         challenge_mask = th.zeros(ACTION_VEC_LEN)
         challenge_mask[AV_CHALLENGE] = 1
         challenge_dist,influence_to_keep_dist,_,_ = self.agent(game_state,challenge_mask)
-        challenge_choice = single_sample(challenge_dist)
+
+        challenge_choice = single_sample(challenge_dist*1)
 
         self.update_influence_to_keep(influence_to_keep_dist)
         return challenge_choice

@@ -52,7 +52,7 @@ class Game:
         '''Check if any player wants to challenge the action, and if so, return the challenger (else return None).'''
 
         for player in self.players[:-1]:
-            if player.declare_challenge(action,self.game_state):
+            if player.alive and player.declare_challenge(action,self.game_state):
                 self.game_state[-1][GSV_CHALLENGE_BY_PLAYER_0 + player.player_id] = 1
                 return player
 
@@ -63,6 +63,7 @@ class Game:
         '''Check if any player wants to block, and if so, return a Block object (else return None).'''
         if action.counter_characters:
             for player in self.players[:-1]:
+                if not player.alive: continue
                 block = player.declare_block(action, self.game_state)
                 if block is not None: 
                     if block.character == "Duke":
@@ -82,7 +83,7 @@ class Game:
         block_players = self.players[block_idx+1:] + self.players[:block_idx]
 
         for player in block_players:
-            if player.declare_challenge_to_block(block, self.game_state):
+            if player.alive and player.declare_challenge_to_block(block, self.game_state):
                 self.game_state[-1][GSV_CHALLENGE_BLOCK_BY_PLAYER_0 + player.player_id] = 1
                 return player
         return None
@@ -108,17 +109,17 @@ class Game:
             self.shuffle_deck()
             new_card = self.deck.pop(0)
             if move.player.influence[0] == card and move.player.influence_alive[0]:
-                move.player.influence[0] = card
+                move.player.influence[0] = new_card
             elif move.player.influence[1] == card and move.player.influence_alive[1]:
-                move.player.influence[1] = card
+                move.player.influence[1] = new_card
             else:
                 ValueError("player does not have card that is object of challenge despite winning challenge")
 
-            return True
+            return False
         else: 
             influence_lost = player.lose_influence()
             #TODO add GSV stuff to this
-            False
+            return    True
             
     def get_player_idx(self, player):
         '''Return `player`'s index in `self.players`.'''
@@ -152,27 +153,31 @@ class Game:
             turn += 1
             round = turn//5
             print(f"round {round} : turn {turn}")
-            if turn % 5 == 0:
-                self.game_state  = th.concatenate([self.game_state, th.zeros([1,GAME_STATE_VEC_LEN])],0)
-                self.game_state[-1,GSV_ROUND_FF1S] = np.sin(round*(1/OMEGA_1)*2*np.pi)
-                self.game_state[-1,GSV_ROUND_FF1C] = np.cos(round*(1/OMEGA_1)*2*np.pi)
-                self.game_state[-1,GSV_ROUND_FF2S] = np.sin(round*(1/OMEGA_2)*2*np.pi)
-                self.game_state[-1,GSV_ROUND_FF2C] = np.cos(round*(1/OMEGA_2)*2*np.pi)
-                self.game_state[-1,GSV_ROUND_FF3S] = np.sin(round*(1/OMEGA_3)*2*np.pi)
-                self.game_state[-1,GSV_ROUND_FF3C] = np.cos(round*(1/OMEGA_3)*2*np.pi)
+            self.check_game()
+            self.game_state  = th.concatenate([self.game_state, th.zeros([1,GAME_STATE_VEC_LEN])],0)
+            self.game_state[-1,GSV_ROUND_FF1S] = np.sin(round*(1/OMEGA_1)*2*np.pi)
+            self.game_state[-1,GSV_ROUND_FF1C] = np.cos(round*(1/OMEGA_1)*2*np.pi)
+            self.game_state[-1,GSV_ROUND_FF2S] = np.sin(round*(1/OMEGA_2)*2*np.pi)
+            self.game_state[-1,GSV_ROUND_FF2C] = np.cos(round*(1/OMEGA_2)*2*np.pi)
+            self.game_state[-1,GSV_ROUND_FF3S] = np.sin(round*(1/OMEGA_3)*2*np.pi)
+            self.game_state[-1,GSV_ROUND_FF3C] = np.cos(round*(1/OMEGA_3)*2*np.pi)
             # Choose the player to play an action. This player will be pushed to the end of `self.players`
             player = self.players[0]
             self.players = self.players[1:] + [player]
             if not player.alive:
-                print(f"\t player {player.player_id}is dead")
+                print(f"\t player {player.player_id} is dead")
                 continue
             action = player.declare_action(self.players, self.game_state)
-            print(f"\t player {player.player_id} is doing action {action}")
+            if action.target is not None:
+                target_id = action.target.player_id
+            else:
+                target_id = None
+            print(f"\t player {player.player_id} is doing action {action} with target {target_id}")
 
             # challenge
             challenger = self.get_challenger(action)
             if challenger is not None:
-                print(f"\tChallenger {challenger.player_id} is doing challenge")
+                print(f"\tPlayer {challenger.player_id} is doing challenge")
             else:
                 print(f"\tno challenge")
 
@@ -180,20 +185,39 @@ class Game:
                 self.game_state[-1][GSV_CHALLENGE_SUCCESS] = 1
                 print(f"\tChallenge was a success!")
                 continue
-
+            self.check_game()
 
             action.incur_costs()
             
             # block
             block = self.get_block(action)
             if block is not None:
-                
+                print(f"\t player {block.player.player_id} is blocking with {block.character}")
                 # block-challenge
                 block_challenger = self.get_block_challenger(block)
-                if (block_challenger is not None) and self.do_challenge(block_challenger, block): 
+                if block_challenger is not None:
+                    print(f"\t block is challenged by {block_challenger.player_id}")
+                if (block_challenger is not None) and self.do_challenge(block_challenger, block):
                     self.game_state[-1][GSV_CHALLENGE_BLOCK_SUCCESS] = 1
+                    print(f"\t challenge to block succeeds")
                     continue
-
+            self.check_game()
             action.do_action(self.deck)
 
         # TODO: return rewards to each player
+    def check_game(self):
+        # check the number of cards:
+        count_dict = {"Duke" : 0 , "Assassin": 0, "Ambassador" : 0, "Captain" : 0, "Contessa" : 0}
+        deck_count_dict = {"Duke" : 0 , "Assassin": 0, "Ambassador" : 0, "Captain" : 0, "Contessa" : 0}
+        player_count_dict = {"Duke" : 0 , "Assassin": 0, "Ambassador" : 0, "Captain" : 0, "Contessa" : 0}
+        for character in self.deck:
+            count_dict[character] += 1
+            deck_count_dict[character] += 1
+        for player in self.players:
+            count_dict[player.influence[0]] += 1
+            count_dict[player.influence[1]] += 1
+            player_count_dict[player.influence[0]] += 1
+            player_count_dict[player.influence[1]] += 1
+
+        assert(3 == count_dict["Duke"] == count_dict["Assassin"] ==
+             count_dict["Ambassador"] == count_dict["Captain"] == count_dict["Contessa"])
