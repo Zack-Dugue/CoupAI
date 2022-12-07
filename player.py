@@ -6,9 +6,9 @@ from move import *
 
 
 class Player:
-    '''This is the interface between the agent and the game.'''
+    '''This is the interface between the actor and the game.'''
 
-    def __init__(self, influences: list, ID: int, agent : type[nn.Module]):#, game):
+    def __init__(self, ID: int, actor : type[nn.Module], influences=[None, None]):#, game):
 
         self.coins = 2
         self.influence = influences
@@ -21,7 +21,7 @@ class Player:
 #         self.game = game
         # add self.influence_to_keep
         self.influence_to_keep = 0
-        self.agent = agent
+        self.actor = actor
 
 
     def lose_coins(self, requested_coins):
@@ -136,10 +136,10 @@ class Player:
         for player in player_list:
             if player.alive and player is not self:
                 # the < section is to account for the fact that every player thinks they are player_id 0
-                # as far as the agent is concerned. Which is why target_mask only contains player1 through 4.
+                # as far as the actor is concerned. Which is why target_mask only contains player1 through 4.
                 target_mask[AV_TARGET_PLAYER_1+player.player_id+(player.player_id < self.player_id)] = 1
         game_state = self.mask_gsv(game_state)
-        action_dist, influence_to_keep_dist, target_dist, exchange_dist = self.agent(game_state,action_mask,target_mask=target_mask)
+        action_dist, influence_to_keep_dist, target_dist, exchange_dist = self.actor(game_state,action_mask,target_mask=target_mask)
         
         self.update_influence_to_keep(influence_to_keep_dist)
         action_choice = th.multinomial(action_dist,1)
@@ -196,7 +196,7 @@ class Player:
                 block_mask[AV_BLOCK_STEALING_AMBS] = 1
                 block_mask[AV_BLOCK_STEALING_CPT] = 1
         
-        block_dist, influence_to_keep_dist, _, _ = self.agent(game_state,block_mask)
+        block_dist, influence_to_keep_dist, _, _ = self.actor(game_state,block_mask)
         block_choice = th.multinomial(block_dist,1)
         if(block_choice == AV_NOOP ):
             block = None
@@ -223,7 +223,7 @@ class Player:
             return False
         challenge_mask = th.zeros(ACTION_VEC_LEN)
         challenge_mask[AV_CHALLENGE] = 1
-        challenge_dist,influence_to_keep_dist,_,_ = self.agent(game_state,challenge_mask)
+        challenge_dist,influence_to_keep_dist,_,_ = self.actor(game_state,challenge_mask)
 
         challenge_choice = single_sample(challenge_dist*1)
 
@@ -234,7 +234,7 @@ class Player:
     def declare_challenge_to_block(self,block, game_state):
         challenge_block_mask = th.zeros(ACTION_VEC_LEN)
         challenge_block_mask[AV_CHALLENGE_BLOCK] = 1
-        challenge_block_dist,influence_to_keep_dist,_,_ = self.agent(game_state,challenge_block_mask)
+        challenge_block_dist,influence_to_keep_dist,_,_ = self.actor(game_state,challenge_block_mask)
         challenge_block_choice = single_sample(challenge_block_dist)
         self.update_influence_to_keep(influence_to_keep_dist)
         return challenge_block_choice

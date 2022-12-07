@@ -12,13 +12,21 @@ import numpy as np
 class Game:
     '''This is the interface between all the players.'''
 
-    def __init__(self,players,deck):
+    def __init__(self,players,deck, assign_influences=True):
         
         self.deck = deck
+        self.shuffle_deck()
         self.players = players
         self.game_state_init(players)
         self.num_alive = len(self.players) # TODO
 
+        if assign_influences: self.assign_influences()
+
+
+    def assign_influences(self):
+        self.shuffle_deck()
+        for player in self.players:
+            player.influences = [self.deck.pop(0), self.deck.pop(0)]
 
     def game_state_init(self,players):
         '''Initialize the game state so that all the players know what their initial cards are.
@@ -252,6 +260,10 @@ class Game:
 
             self.check_game()
             action.do_action(self.deck,self.game_state)
+        
+        # return winning id
+        for player in self.players:
+            if player.alive: return player.player_id
 
         # TODO: return rewards to each player
     def check_game(self):
