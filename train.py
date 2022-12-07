@@ -28,6 +28,38 @@ def run_episode(players):
 
     return action_probs, values, rewards
 
+def generate_samples(players,num_batches,batch_size):
+    '''Generate multiple samples and batch them.
+    Returns a list of 'batches' of game_states, values, and rewards'''
+    game_state_list = []
+    values_list = []
+    reward_list = []
+    # the contents of this list will be a tensor for each batch stating how long
+    # the game was. This will be important to determining the loss when batching later.
+    number_of_turns_list = []
+    for j in range(num_batches):
+        game_state_batch = []
+        values_batch = []
+        reward_batch = []
+        for i in range(batch_size):
+            game_state, values, reward = run_episode(players)
+            game_state_batch.append(game_state)
+            values_batch.append(values)
+            reward_batch.append(reward)
+        # TODO: The values list and game_state list
+        #  aren't the same size, and thus can't be stacked.
+        #  Once I have a better idea what form they're in, I can 0 pad them
+        #  to make them stack.
+        game_state_list.append(th.stack(game_state_batch,dim=0))
+        values_list.append(th.stack(values_batch,dim=0))
+        reward_list.append(th.stack(reward_batch,dim=0))
+
+        print(f"game{j} finished")
+
+
+    return game_state_list, values_list, reward_list, number_of_turns_list
+
+
 def get_actor_loss(action_probs, values, returns):
     advantage = returns - values # TODO
     action_log_probs = th.math.log(action_probs)
@@ -35,11 +67,8 @@ def get_actor_loss(action_probs, values, returns):
 
     return loss
 
-def batch_for_critic(game_state,rewards, batch_size):
-    '''take a list of game_states and rewards and returns a list batched tensors. Also
-    returns a list of how many turns each of the games in each respective batch went for
-    (this is necessary because of padding and stuff).'''
-    pass
+#TODO: consider training critic with bootstrap method if this doesn't work.
+
 
 def get_critic_loss(critic, game_states, win_ids):
     # TODO: add batching:
@@ -47,6 +76,8 @@ def get_critic_loss(critic, game_states, win_ids):
     loss_fun = nn.CrossEntropyLoss()
     total_loss = th.zeros(1)
     # Some phases / turns are very similar to past phases / turns.
+    # might want to not actually calculate for every single phase
+    # or every single turn, as recent turns / phases are likely to be highly correlated.
     for turn in range(game_length):
         for phase in range(5):
             masked_game_states = temporal_masking(game_states,turn,phase)
