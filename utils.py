@@ -226,6 +226,59 @@ OMEGA_3 = 16
 OMEGA_4 = 32
 DECK = ['Duke', 'Duke', 'Duke', 'Assassin' , 'Assassin' , 'Assassin',  'Ambassador','Ambassador','Ambassador', 'Captain', 'Captain', 'Captain', 'Contessa' , 'Contessa', 'Contessa']
 
+BEFORE_ACTION_PHASE_MASK = th.zeros(GAME_STATE_VEC_LEN)
+BEFORE_ACTION_PHASE_MASK[GSV_ACTING_PLAYER_0:GSV_ACTING_PLAYER_4 + 1] = 1
+BEFORE_ACTION_PHASE_MASK[GSV_ROUND_FF1S:GSV_ROUND_FF4C+1] = 1
+BEFORE_ACTION_PHASE_MASK[GSV_PHASE_ACTION:GSV_ACTIVE_ROUND + 1] = 1
+
+# The mask for the last token after an action is taken, but before a block is made.
+AFTER_ACTION_PHASE_MASK = th.zeros(GAME_STATE_VEC_LEN)
+AFTER_ACTION_PHASE_MASK += BEFORE_ACTION_PHASE_MASK
+AFTER_ACTION_PHASE_MASK[GSV_ACTION_INCOME:GSV_ACTION_STEAL+1] = 1
+AFTER_ACTION_PHASE_MASK[GSV_TARGET_PLAYER_0 : GSV_TARGET_PLAYER_4 + 1] = 1
+AFTER_ACTION_PHASE_MASK[GSV_EXCHANGE_DIST_0_DUKE:GSV_EXCHANGE_DIST_1_CONTESSA + 1] = 1
+
+# The mask for the last token before a challenge is made
+AFTER_CHALLENGE_PHASE_MASK = th.zeros(GAME_STATE_VEC_LEN)
+AFTER_CHALLENGE_PHASE_MASK += AFTER_ACTION_PHASE_MASK
+AFTER_CHALLENGE_PHASE_MASK[GSV_CHALLENGE_BY_PLAYER_0:GSV_CHALLENGE_BY_PLAYER_4+1] = 1
+
+
+
+AFTER_BLOCK_PHASE_MASK = th.zeros(GAME_STATE_VEC_LEN)
+AFTER_BLOCK_PHASE_MASK += AFTER_CHALLENGE_PHASE_MASK
+AFTER_BLOCK_PHASE_MASK[GSV_CHALLENGE_SUCCESS] = 1
+AFTER_BLOCK_PHASE_MASK[GSV_CARD_REVEALED_CHALLENGE_DUKE:GSV_CARD_REVEALED_CHALLENGE_CONTESSA+1] = 1
+AFTER_BLOCK_PHASE_MASK[GSV_CARD_OBTAINED_CHALLENGE_DUKE:GSV_CARD_OBTAINED_CHALLENGE_CONTESSA+1] = 1
+AFTER_BLOCK_PHASE_MASK[GSV_BLOCK_FOREIGN_AID:GSV_BLOCK_ASSASSINATION+1] = 1
+
+AFTER_BLOCK_CHALLENGE_PHASE_MASK = th.zeros(GAME_STATE_VEC_LEN)
+AFTER_BLOCK_CHALLENGE_PHASE_MASK += AFTER_BLOCK_PHASE_MASK
+AFTER_BLOCK_CHALLENGE_PHASE_MASK[GSV_CHALLENGE_BLOCK_BY_PLAYER_0:GSV_CHALLENGE_BLOCK_BY_PLAYER_4+1] =1
+
+PHASE_MASK_LIST = [BEFORE_ACTION_PHASE_MASK]
+
+def temporal_masking(old_game_state,turn,phase):
+    game_state = old_game_state.clone()[:,:turn + 1]
+    game_state[:,-1, GSV_ACTIVE_ROUND] = 1
+    phase_mask = PHASE_MASK_LIST[phase]
+    game_state[:,-1,:] = game_state[:,-1,:]*phase_mask
+    if phase == 0:
+        pass
+    if phase == 1:
+        game_state[:,-1,GSV_PHASE_ACTION] = 1
+    if phase == 2:
+        game_state[:,-1,GSV_PHASE_CHALLENGE] = 1
+    if phase == 3:
+        game_state[:,-1,GSV_PHASE_CHALLENGE] = 1
+    if phase == 4:
+        game_state[:,-1,GSV_PHASE_BLOCK] = 1
+    if phase == 5:
+        game_state[:,-1,GSV_PHASE_CHALLENGE_BLOCK] = 1
+    return game_state
+
+
+
 def influence_to_num(influence : str):
     '''convert an influence to a coressponding number, starting at DUKE=0'''
     if influence == 'Duke': return 0

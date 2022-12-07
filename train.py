@@ -1,6 +1,8 @@
 from utils import *
 from game import Game
 import torch as th
+import torch.nn as nn
+import torch.nn.functional as F
 from player import Player
 
 class Actor:
@@ -40,9 +42,20 @@ def batch_for_critic(game_state,rewards, batch_size):
     pass
 
 def get_critic_loss(critic, game_states, win_ids):
-    batched_game, batched_win_ids, game_lengths = batch_for_critic(game_states,win_ids)
-    
-    ...
+    # TODO: add batching:
+    game_length = game_states.shape[0]
+    loss_fun = nn.CrossEntropyLoss()
+    total_loss = th.zeros(1)
+    # Some phases / turns are very similar to past phases / turns.
+    for turn in range(game_length):
+        for phase in range(5):
+            masked_game_states = temporal_masking(game_states,turn,phase)
+            predicted_winners = critic(masked_game_states)
+            total_loss += loss_fun(predicted_winners,win_ids)
+
+    return total_loss
+
+
 
 def train_step(critic, players, critic_optimizer, actor_optimizers):
     '''Runs a single train step for all players.'''
