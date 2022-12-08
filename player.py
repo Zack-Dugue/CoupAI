@@ -23,6 +23,8 @@ class Player:
         self.influence_to_keep = 0
         self.actor = actor
 
+        # action prob histories
+
 
     def lose_coins(self, requested_coins):
         '''

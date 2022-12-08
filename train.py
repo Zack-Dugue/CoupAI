@@ -11,8 +11,8 @@ class Actor:
 class Critic:
     ...
 
-def run_episode(players):
-    game = Game(players, DECK.copy())
+def run_episode(players, critic):
+    game = Game(players, DECK.copy(), critic=critic)
     
     # TODO: fetch action_probs and game_states from a file instead (or return them?)
     action_probs = 0 # [player, turn, phase, actions]  

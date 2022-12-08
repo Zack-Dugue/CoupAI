@@ -12,13 +12,21 @@ import numpy as np
 class Game:
     '''This is the interface between all the players.'''
 
-    def __init__(self,players,deck, assign_influences=True):
+    def __init__(self,players,deck, assign_influences=True, critic=None):
         
         self.deck = deck
         self.shuffle_deck()
         self.players = players
         self.game_state_init(players)
-        self.num_alive = len(self.players) # TODO
+
+        num_players =  len(self.players)
+        self.num_alive = num_players
+
+        # for training
+        num_phases = 5
+        self.critic = critic
+        self.values = []#th.zeros([num_players, 0, num_phases, ACTION_VEC_LEN])
+        self.action_hist = []
 
         if assign_influences: self.assign_influences()
 
@@ -59,6 +67,18 @@ class Game:
             self.game_state[-1,GSV_EXCHANGE_DIST_0_DUKE:GSV_EXCHANGE_DIST_1_CONTESSA+1] = action.influence_dist[AV_EXCHNG_CARD_0_DUKE:AV_EXCHNG_CARD_1_CONTESSA+1]
         if type(action) == type(Steal): self.game_state[-1,GSV_ACTION_STEAL] = 1
 
+    # def get_gs_action(self, action):
+    #     if action.target is not None:
+    #         self.game_state[-1,GSV_TARGET_PLAYER_0 + action.target.player_id] = 1
+    #     if type(action) == type(Income): self.game_state[-1,GSV_ACTION_INCOME] = 1
+    #     if type(action) == type(Foreign_Aid): self.game_state[-1,GSV_ACTION_FOREIGN_AID] = 1
+    #     if type(action) == type(Coup): self.game_state[-1,GSV_ACTION_COUP] = 1
+    #     if type(action) == type(Tax): self.game_state[-1,GSV_ACTION_TAX] = 1
+    #     if type(action) == type(Assassinate): self.game_state[-1,GSV_ACTION_ASSASSINATE] = 1
+    #     if type(action) == type(Exchange):
+    #         self.game_state[-1,GSV_ACTION_EXCHANGE] = 1
+    #         self.game_state[-1,GSV_EXCHANGE_DIST_0_DUKE:GSV_EXCHANGE_DIST_1_CONTESSA+1] = action.influence_dist[AV_EXCHNG_CARD_0_DUKE:AV_EXCHNG_CARD_1_CONTESSA+1]
+    #     if type(action) == type(Steal): self.game_state[-1,GSV_ACTION_STEAL] = 1
 
     def get_challenger(self,action):
         '''Check if any player wants to challenge the action, and if so, return the challenger (else return None).'''
@@ -106,9 +126,6 @@ class Game:
                 return player
         self.game_state[-1,GSV_PHASE_CHALLENGE_BLOCK] = 0
         return None
-    
-    def update_game_state(self, influence):
-        ... # TODO
     
         
     def shuffle_deck(self):
@@ -177,6 +194,10 @@ class Game:
         if num_alive == 0: raise ValueError('All players are dead') # TODO: make error specific
         return True
 
+    def update_values(player_idx, phase, action_idx):
+        val_vec = th.zeros(5, 1, 5, ACTION_VEC_LEN)
+        val_vec[player_idx, phase, action_idx] = self.critic(self.game_state)
+        self.values.append(val_vec)
 
     def loop(self):
         '''
@@ -217,8 +238,14 @@ class Game:
             #putting these before declare action is important so that the agent has the right input
             self.game_state[-1,GSV_PHASE_ACTION] = 1
             self.game_state[-1, GSV_ACTING_PLAYER_0 +player.player_id] = 1
+
+            # query value (before action)
+
             action = player.declare_action(self.players, self.game_state)
             self.game_state[-1,GSV_PHASE_ACTION] = 0
+
+            # query value (after action)
+            self.update_values(player.player_id, 0, action.AV)
 
             self.update_gs_action(action)
             if action.target is not None:
@@ -240,13 +267,20 @@ class Game:
                 continue
             self.check_game()
 
+            # query value (after challenge)
+            if challenger is not None: self.update_values(challenger.player_id, 1, AV_CHALLENGE)
+            else: self.update_values(0, 1, AV_NOOP) # TODO: huh??
+
+
             action.incur_costs()
             
             # block
-
             block = self.get_block(action)
             if block is not None:
                 print(f"\t player {block.player.player_id} is blocking with {block.character}")
+                
+                # query value (after block)
+                
                 # block-challenge
                 block_challenger = self.get_block_challenger(block)
                 if block_challenger is not None:
@@ -258,12 +292,31 @@ class Game:
                     print(f"\t challenge to block failse")
                     continue
 
+                # query value (after block challenge)
+                if block_challenger is not None: self.update_values(block_challenger.player_id, 4, AV_CHALLENGE_BLOCK)
+                else: self.update_values(0, 4, AV_NOOP)
+
+            # TODO: query after block
+            # if block is not None: self.update_values(0, 4, AV_BLOCK) # TODO
+            # else: self.update_values(0, 4, AV_NOOP)
+            
+
             self.check_game()
             action.do_action(self.deck,self.game_state)
         
-        # return winning id
+        
+        # get winning id
+        win_id = None
         for player in self.players:
-            if player.alive: return player.player_id
+            if player.alive: 
+                win_id = player.player_id
+                break
+
+        values = th.cat(self.values, dim=1)
+
+        # TODO: get action_probabilit
+
+        return self.game_state, values, win_id
 
         # TODO: return rewards to each player
     def check_game(self):

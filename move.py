@@ -36,9 +36,10 @@ class Block(Move):
 class Action(Move):
     '''This is the super class for all actions (i.e. assasinate, exchange, etc)'''
 
-    def __init__(self, player , target, character: str, counter_characters: list):
+    def __init__(self, player , target, character: str, counter_characters: list, AV):
         self.target = target
         self.counter_characters = counter_characters
+        self.AV = AV
         super().__init__(player, character)
 
     def incur_costs(self):
@@ -61,7 +62,7 @@ class Action(Move):
 class Income(Action):
 
     def __init__(self, player):
-        super(Income,self).__init__(player, None, None,[])
+        super(Income,self).__init__(player, None, None,[], AV_INCOME)
 
 
     def do_action(self, deck : list, game_state):
@@ -70,7 +71,7 @@ class Income(Action):
 class Foreign_Aid(Action):
 
     def __init__(self, player):
-        super().__init__(player, None, None, ['Duke'])
+        super().__init__(player, None, None, ['Duke'], AV_FOREIGN_AID)
 
     def do_action(self, deck : list, game_state):
         self.player.coins += 2
@@ -79,7 +80,7 @@ class Coup(Action):
 
     def __init__(self, player, target):
         assert player.coins >= 7, '`player` does not have enough coins for coup'
-        super().__init__(player, target, None, [])
+        super().__init__(player, target, None, [], AV_COUP)
 
     def incur_costs(self):
         self.player.coins -= 7
@@ -90,7 +91,7 @@ class Coup(Action):
 class Tax(Action):
 
     def __init__(self, player):
-        super().__init__(player, None, 'Duke', [])
+        super().__init__(player, None, 'Duke', [], AV_TAX)
 
     def do_action(self, deck : list, game_state):
         self.player.coins += 3
@@ -100,7 +101,7 @@ class Assassinate(Action):
 
     def __init__(self, player, target):
         assert player.coins >= 3, '`player` does not have enough coins for assasination'
-        super().__init__(player, target, 'Assasin', ['Contessa'])
+        super().__init__(player, target, 'Assasin', ['Contessa'], AV_ASSASSINATE)
 
     def incur_costs(self):
         self.player.coins -= 3
@@ -114,7 +115,7 @@ class Exchange(Action):
         '''
         influence_dist is the distribution of cards desired.
         '''
-        super().__init__(player, None, 'Ambassador', [])
+        super().__init__(player, None, 'Ambassador', [], AV_EXCHANGE)
         self.softermax = SofterMax()
         self.influence_dist = influence_dist
 
@@ -192,7 +193,7 @@ class Exchange(Action):
 class Steal(Action):
 
     def __init__(self, player, target):
-        super().__init__(player, target, 'Captain', ['Ambassador', 'Captain'])
+        super().__init__(player, target, 'Captain', ['Ambassador', 'Captain'], AV_STEAL)
 
     def do_action(self, deck : list, game_state):
         num_coins = self.target.lose_coins(2)
